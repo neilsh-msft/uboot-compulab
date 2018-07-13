@@ -140,7 +140,8 @@ DECLARE_GLOBAL_DATA_PTR;
 
 #define TXTL  2 /* reset default */
 #define RXTL  1 /* reset default */
-#define RFDIV 4 /* divide input clock by 2 */
+#define RFDIV2 4 /* divide input clock by 2 */
+#define RFDIV1 5 /* divide input clock by 1 */
 
 static void mxc_serial_setbrg(void)
 {
@@ -149,9 +150,18 @@ static void mxc_serial_setbrg(void)
 	if (!gd->baudrate)
 		gd->baudrate = CONFIG_BAUDRATE;
 
-	__REG(UART_PHYS + UFCR) = (RFDIV << UFCR_RFDIV_SHF)
-		| (TXTL << UFCR_TXTL_SHF)
-		| (RXTL << UFCR_RXTL_SHF);
+       if (gd->baudrate * 16 > clk / 2) {
+               clk *= 2;
+               __REG(UART_PHYS + UFCR) = (RFDIV1 << UFCR_RFDIV_SHF)
+                       | (TXTL << UFCR_TXTL_SHF)
+                       | (RXTL << UFCR_RXTL_SHF);
+       }
+       else {
+               __REG(UART_PHYS + UFCR) = (RFDIV2 << UFCR_RFDIV_SHF)
+                       | (TXTL << UFCR_TXTL_SHF)
+                       | (RXTL << UFCR_RXTL_SHF);
+       }
+
 	__REG(UART_PHYS + UBIR) = 0xf;
 	__REG(UART_PHYS + UBMR) = clk / (2 * gd->baudrate);
 
