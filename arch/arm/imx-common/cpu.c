@@ -306,6 +306,7 @@ u32 get_ahb_clk(void)
 }
 #endif
 
+#if !defined(CONFIG_IMX_PERSIST_INIT)
 void arch_preboot_os(void)
 {
 #if defined(CONFIG_CMD_SATA)
@@ -332,6 +333,7 @@ void arch_preboot_os(void)
 	imx8m_fb_disable();
 #endif
 }
+#endif /* !defined(CONFIG_IMX_PERSIST_INIT) */
 
 #ifndef CONFIG_IMX8M
 void set_chipselect_size(int const cs_size)
