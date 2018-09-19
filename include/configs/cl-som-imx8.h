@@ -94,6 +94,31 @@
 #define CONFIG_PHY_ATHEROS
 #endif
 
+#ifdef CONFIG_UEFI_BOOT
+#define CONFIG_EXTRA_ENV_SETTINGS \
+	"mmcdev="__stringify(CONFIG_SYS_MMC_ENV_DEV)"\0" \
+	"mmcpart=" __stringify(CONFIG_SYS_MMC_IMG_LOAD_PART) "\0" \
+	"uefi_image_name=imxboard_efi.fd\0" \
+	"uefi_addr=" __stringify(CONFIG_UEFI_LOAD_ADDR) "\0" \
+	"uefi_bootcmd=" \
+		"usb start; " \
+		"part list mmc ${mmcdev} -bootable devplist; " \
+		"env exists devplist || setenv devplist 1; " \
+		"for bootpart in ${devplist}; do " \
+			"if fatload mmc ${mmcdev}:${bootpart} " \
+			"${uefi_addr} ${uefi_image_name}; then " \
+				"echo \"Jumping to ${uefi_image_name} at " \
+				"${uefi_addr}\"; " \
+				"dcache off; " \
+				"go ${uefi_addr}; " \
+			"fi; " \
+		"done; " \
+	"echo \"Could not find ${uefi_image_name} on mmc ${mmcdev}\";\0"
+
+#define CONFIG_BOOTCOMMAND "run uefi_bootcmd"
+
+#define CONFIG_SYS_MMC_ENV_DEV		1   /* USDHC2 */
+#else
 #define CONFIG_MFG_ENV_SETTINGS \
 	"mfgtool_args=setenv bootargs console=${console},${baudrate} " \
 		"rdinit=/linuxrc " \
@@ -171,6 +196,9 @@
 		   "fi; " \
 	   "else booti ${loadaddr} - ${fdt_addr}; fi"
 
+#define CONFIG_SYS_MMC_ENV_DEV		0   /* USDHC1/eMMC */
+#endif /* CONFIG_UEFI_BOOT */
+
 /* Link Definitions */
 #define CONFIG_LOADADDR			0x40480000
 #define CONFIG_SYS_TEXT_BASE		0x40200000
@@ -187,7 +215,6 @@
 #define CONFIG_ENV_OVERWRITE
 #define CONFIG_ENV_OFFSET               (22 * SZ_64K)
 #define CONFIG_ENV_SIZE			SZ_64K
-#define CONFIG_SYS_MMC_ENV_DEV		0   /* USDHC1/eMMC */
 
 /* Size of malloc() pool */
 #define CONFIG_SYS_MALLOC_LEN		((CONFIG_ENV_SIZE + (2*1024) + (16*1024)) * 1024)
@@ -197,7 +224,9 @@
 #define PHYS_SDRAM_SIZE			0x80000000 /* 2GB DDR */
 #define CONFIG_NR_DRAM_BANKS		1
 
+#ifndef CONFIG_BAUDRATE
 #define CONFIG_BAUDRATE			115200
+#endif
 
 #define CONFIG_MXC_UART
 #define CONFIG_MXC_UART_BASE		UART3_BASE_ADDR
@@ -275,7 +304,7 @@
 #define CONFIG_USB_XHCI_IMX8M
 #define CONFIG_USB_XHCI_DWC3
 #define CONFIG_USB_XHCI_HCD
-#define CONFIG_USB_MAX_CONTROLLER_COUNT         1
+#define CONFIG_USB_MAX_CONTROLLER_COUNT         2
 #define CONFIG_SYS_USB_XHCI_MAX_ROOT_PORTS      2
 #endif
 
@@ -317,6 +346,11 @@
 
 #if defined(CONFIG_ANDROID_SUPPORT)
 #include "cl-som-imx8_android.h"
+#endif
+
+/* Define global page address */
+#if defined(CONFIG_GLOBAL_PAGE)
+#define GLOBAL_PAGE_BASE_ADDRESS 0x407E9000
 #endif
 
 #endif

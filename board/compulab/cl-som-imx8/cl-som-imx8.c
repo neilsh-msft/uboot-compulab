@@ -32,6 +32,7 @@
 
 #include <usb.h>
 #include <dwc3-uboot.h>
+#include <global_page.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -150,7 +151,7 @@ static int handle_mac_address(char *env_var, uint eeprom_bus)
 	return eth_setenv_enetaddr(env_var, enetaddr);
 }
 
-static inline void setup_mac_address()
+static inline void setup_mac_address(void)
 {
 	if (handle_mac_address("ethaddr", 0))
 		printf(NO_MAC_ADDR, "primary NIC");
@@ -204,17 +205,25 @@ int board_phy_config(struct phy_device *phydev)
 #define USB_PHY_CTRL2			0xF0048
 #define USB_PHY_CTRL2_TXENABLEN0	BIT(8)
 
-static struct dwc3_device dwc3_device_data = {
+static struct dwc3_device dwc3_device_data[] = {{
 	.maximum_speed = USB_SPEED_SUPER,
 	.base = USB1_BASE_ADDR,
 	.dr_mode = USB_DR_MODE_HOST,
 	.index = 0,
 	.power_down_scale = 2,
-};
+},
+{
+	.maximum_speed = USB_SPEED_SUPER,
+	.base = USB2_BASE_ADDR,
+	.dr_mode = USB_DR_MODE_HOST,
+	.index = 1,
+	.power_down_scale = 2,
+}};
 
 int usb_gadget_handle_interrupts(void)
 {
 	dwc3_uboot_handle_interrupt(0);
+	dwc3_uboot_handle_interrupt(1);
 	return 0;
 }
 
@@ -243,8 +252,15 @@ static void dwc3_nxp_usb_phy_init(struct dwc3_device *dwc3)
 
 int board_usb_init(int index, enum usb_init_type init)
 {
-	dwc3_nxp_usb_phy_init(&dwc3_device_data);
-	return dwc3_uboot_init(&dwc3_device_data);
+	int status;
+
+	printf("board_usb_init %d\n", index);
+	imx8m_usb_power(index, true);
+	dwc3_nxp_usb_phy_init(&dwc3_device_data[index]);
+	status = dwc3_uboot_init(&dwc3_device_data[index]);
+	printf("board_usb_init status %d\n", status);
+
+	return status;
 }
 
 int board_usb_cleanup(int index, enum usb_init_type init)
@@ -287,6 +303,10 @@ int board_late_init(void)
 	board_late_mmc_env_init();
 #endif
 
+#ifdef CONFIG_GLOBAL_PAGE
+	init_global_page();
+	publish_to_global_page();
+#endif
 	return 0;
 }
 
@@ -314,6 +334,53 @@ int is_recovery_key_pressing(void)
 }
 #endif /*CONFIG_ANDROID_RECOVERY*/
 #endif /*CONFIG_FSL_FASTBOOT*/
+
+#if defined(CONFIG_VIDEO_IMXDCSS)
+
+struct display_info_t const displays[] = {{
+	.bus	= 0, /* Unused */
+	.addr	= 0, /* Unused */
+	.pixfmt	= GDF_32BIT_X888RGB,
+	.detect	= NULL,
+	.enable	= NULL,
+#ifndef CONFIG_VIDEO_IMXDCSS_1080P
+	.mode	= {
+		.name           = "HDMI", /* 720P60 */
+		.refresh        = 60,
+		.xres           = 1280,
+		.yres           = 720,
+		.pixclock       = 13468, /* 74250  kHz */
+		.left_margin    = 110,
+		.right_margin   = 220,
+		.upper_margin   = 5,
+		.lower_margin   = 20,
+		.hsync_len      = 40,
+		.vsync_len      = 5,
+		.sync           = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
+		.vmode          = FB_VMODE_NONINTERLACED
+	}
+#else
+	.mode	= {
+		.name           = "HDMI", /* 1080P60 */
+		.refresh        = 60,
+		.xres           = 1920,
+		.yres           = 1080,
+		.pixclock       = 6734, /* 148500 kHz */
+		.left_margin    = 148,
+		.right_margin   = 88,
+		.upper_margin   = 36,
+		.lower_margin   = 4,
+		.hsync_len      = 44,
+		.vsync_len      = 5,
+		.sync           = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
+		.vmode          = FB_VMODE_NONINTERLACED
+	}
+#endif
+} };
+size_t display_count = ARRAY_SIZE(displays);
+
+#endif /* CONFIG_VIDEO_IMXDCSS */
+
 
 #if defined(CONFIG_VIDEO_IMXDCSS)
 
