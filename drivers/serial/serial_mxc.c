@@ -143,28 +143,32 @@ DECLARE_GLOBAL_DATA_PTR;
 #define RFDIV2 4 /* divide input clock by 2 */
 #define RFDIV1 5 /* divide input clock by 1 */
 
-static void mxc_serial_setbrg(void)
+static void mxc_serial_set(void *base)
 {
+	u32 tmp = RFDIV2 << UFCR_RFDIV_SHF;
 	u32 clk = imx_get_uartclk();
 
 	if (!gd->baudrate)
 		gd->baudrate = CONFIG_BAUDRATE;
 
        if (gd->baudrate * 16 > clk / 2) {
+		tmp = RFDIV1 << UFCR_RFDIV_SHF;
                clk *= 2;
-               __REG(UART_PHYS + UFCR) = (RFDIV1 << UFCR_RFDIV_SHF)
-                       | (TXTL << UFCR_TXTL_SHF)
-                       | (RXTL << UFCR_RXTL_SHF);
-       }
-       else {
-               __REG(UART_PHYS + UFCR) = (RFDIV2 << UFCR_RFDIV_SHF)
-                       | (TXTL << UFCR_TXTL_SHF)
-                       | (RXTL << UFCR_RXTL_SHF);
-       }
+	}
 
-	__REG(UART_PHYS + UBIR) = 0xf;
-	__REG(UART_PHYS + UBMR) = clk / (2 * gd->baudrate);
+	__REG(base + UFCR) = tmp
+               | (TXTL << UFCR_TXTL_SHF)
+               | (RXTL << UFCR_RXTL_SHF);
 
+	__REG(base + UBIR) = 0xf;
+	__REG(base + UBMR) = (clk / (2 * gd->baudrate)) - 1;
+
+}
+
+static void mxc_serial_setbrg(void)
+{
+	mxc_serial_set((void *)UART_PHYS);
+	mxc_serial_set((void *)UART2_BASE_ADDR);
 }
 
 static int mxc_serial_getc(void)
@@ -184,6 +188,7 @@ static void mxc_serial_putc(const char c)
 
 	/* wait for transmitter to be ready */
 	while (!(__REG(UART_PHYS + UTS) & UTS_TXEMPTY))
+
 		WATCHDOG_RESET();
 }
 
@@ -203,25 +208,33 @@ static int mxc_serial_tstc(void)
  * are always 8 data bits, no parity, 1 stop bit, no start bits.
  *
  */
+static int mxc_serial_init2(void *base)
+{
+	__REG(base + UCR1) = 0x0;
+	__REG(base + UCR2) = 0x0;
+
+	while (!(__REG(base + UCR2) & UCR2_SRST));
+
+	__REG(base + UCR3) = 0x0704 | UCR3_ADNIMP;
+	__REG(base + UCR4) = 0x8000;
+	__REG(base + UESC) = 0x002b;
+	__REG(base + UTIM) = 0x0;
+
+	__REG(base + UTS) = 0x0;
+
+	mxc_serial_set(base);
+
+	__REG(base + UCR2) = UCR2_WS | UCR2_IRTS | UCR2_RXEN | UCR2_TXEN | UCR2_SRST;
+
+	__REG(base + UCR1) = UCR1_UARTEN;
+
+	return 0;
+}
+
 static int mxc_serial_init(void)
 {
-	__REG(UART_PHYS + UCR1) = 0x0;
-	__REG(UART_PHYS + UCR2) = 0x0;
-
-	while (!(__REG(UART_PHYS + UCR2) & UCR2_SRST));
-
-	__REG(UART_PHYS + UCR3) = 0x0704 | UCR3_ADNIMP;
-	__REG(UART_PHYS + UCR4) = 0x8000;
-	__REG(UART_PHYS + UESC) = 0x002b;
-	__REG(UART_PHYS + UTIM) = 0x0;
-
-	__REG(UART_PHYS + UTS) = 0x0;
-
-	serial_setbrg();
-
-	__REG(UART_PHYS + UCR2) = UCR2_WS | UCR2_IRTS | UCR2_RXEN | UCR2_TXEN | UCR2_SRST;
-
-	__REG(UART_PHYS + UCR1) = UCR1_UARTEN;
+	mxc_serial_init2((void *)UART_PHYS);
+	mxc_serial_init2((void *)UART2_BASE_ADDR);
 
 	return 0;
 }
