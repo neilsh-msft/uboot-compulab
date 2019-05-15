@@ -94,31 +94,6 @@
 #define CONFIG_PHY_ATHEROS
 #endif
 
-#ifdef CONFIG_UEFI_BOOT
-#define CONFIG_EXTRA_ENV_SETTINGS \
-	"mmcdev="__stringify(CONFIG_SYS_MMC_ENV_DEV)"\0" \
-	"mmcpart=" __stringify(CONFIG_SYS_MMC_IMG_LOAD_PART) "\0" \
-	"uefi_image_name=imxboard_efi.fd\0" \
-	"uefi_addr=" __stringify(CONFIG_UEFI_LOAD_ADDR) "\0" \
-	"uefi_bootcmd=" \
-		"usb start; " \
-		"part list mmc ${mmcdev} -bootable devplist; " \
-		"env exists devplist || setenv devplist 1; " \
-		"for bootpart in ${devplist}; do " \
-			"if fatload mmc ${mmcdev}:${bootpart} " \
-			"${uefi_addr} ${uefi_image_name}; then " \
-				"echo \"Jumping to ${uefi_image_name} at " \
-				"${uefi_addr}\"; " \
-				"dcache off; " \
-				"go ${uefi_addr}; " \
-			"fi; " \
-		"done; " \
-	"echo \"Could not find ${uefi_image_name} on mmc ${mmcdev}\";\0"
-
-#define CONFIG_BOOTCOMMAND "run uefi_bootcmd"
-
-#define CONFIG_SYS_MMC_ENV_DEV		1   /* USDHC2 */
-#else
 #define CONFIG_MFG_ENV_SETTINGS \
 	"mfgtool_args=setenv bootargs console=${console},${baudrate} " \
 		"rdinit=/linuxrc " \
@@ -184,6 +159,7 @@
 			"booti; " \
 		"fi;\0"
 
+#if !defined(CONFIG_BOOTCOMMAND)
 #define CONFIG_BOOTCOMMAND \
 	   "mmc dev ${mmcdev}; if mmc rescan; then " \
 		   "if run loadbootscript; then " \
@@ -195,9 +171,9 @@
 			   "fi; " \
 		   "fi; " \
 	   "else booti ${loadaddr} - ${fdt_addr}; fi"
+#endif
 
 #define CONFIG_SYS_MMC_ENV_DEV		0   /* USDHC1/eMMC */
-#endif /* CONFIG_UEFI_BOOT */
 
 /* Link Definitions */
 #define CONFIG_LOADADDR			0x40480000
