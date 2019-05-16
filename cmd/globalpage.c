@@ -58,7 +58,7 @@ int globalpage_add(char* const arg)
 	else
 		return -1;
 
-	eth_env_get_enetaddr(arg, mac_id);
+	eth_getenv_enetaddr(arg, mac_id);
 
 	global_page->mac_entry[mac].enet_id = mac;
 	global_page->mac_entry[mac].valid = 1;
